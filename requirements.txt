@@ -1,0 +1,12 @@
+# Kronos model dependencies
+torch>=2.0.0
+einops==0.8.1
+huggingface_hub==0.33.1
+safetensors==0.6.2
+tqdm==4.67.1
+
+# Data & analysis
+numpy
+pandas==2.2.2
+ccxt==4.4.57
+matplotlib==3.9.3
