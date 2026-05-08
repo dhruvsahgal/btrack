@@ -1,6 +1,16 @@
 [build]
 builder = "nixpacks"
 
+# --- collector service (default) ---
+# Runs forever, fetching new BTC/USDT candles every hour.
+# To use: deploy this repo as-is.
 [deploy]
 startCommand = "python collect.py"
 restartPolicyType = "always"
+
+# --- backtest service ---
+# One-shot job: runs the Kronos walk-forward backtest and exits.
+# To use: in Railway → service Settings → Deploy → Start Command, set:
+#   python backtest.py --start 2024-01-01 --end 2024-07-01
+# Results are written to /data/backtest_results.csv and /data/backtest_results.png
+# Retrieve via: Railway → service → shell tab, then download from /data

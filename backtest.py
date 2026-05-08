@@ -9,29 +9,41 @@ on whether the mean predicted close is above or below the current close.
 Usage:
     python backtest.py [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--step HOURS]
 
-Requirements:
-    pip install -r requirements.txt
-    # Kronos model code must be on the Python path (clone the repo alongside):
-    #   git clone https://github.com/shiyu-coder/Kronos  ../Kronos
+Works locally and on Railway. Kronos is installed automatically from GitHub
+if not already present. Results are saved to DATA_DIR (/data on Railway).
 """
 
 import argparse
+import subprocess
 import sys
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import ccxt
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")  # no display needed (works headless on Railway)
 import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
-# Kronos path – adjust if you cloned the repo elsewhere
+# Kronos — install from GitHub if not importable (handles Railway cold start)
 # ---------------------------------------------------------------------------
-KRONOS_PATH = os.path.join(os.path.dirname(__file__), "..", "Kronos")
-sys.path.insert(0, KRONOS_PATH)
-
-from model import Kronos, KronosTokenizer, KronosPredictor  # noqa: E402
+try:
+    from model import Kronos, KronosTokenizer, KronosPredictor
+except ModuleNotFoundError:
+    # Try local sibling clone first, then fall back to pip install from GitHub
+    _local = os.path.join(os.path.dirname(__file__), "..", "Kronos")
+    if os.path.isdir(_local):
+        sys.path.insert(0, _local)
+    else:
+        print("Kronos not found locally — installing from GitHub …")
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", "--quiet",
+            "git+https://github.com/shiyu-coder/Kronos.git",
+        ])
+    from model import Kronos, KronosTokenizer, KronosPredictor
 
 # ---------------------------------------------------------------------------
 # Config
@@ -178,6 +190,9 @@ def compute_metrics(results: pd.DataFrame) -> dict:
 # ---------------------------------------------------------------------------
 # 5. Plot
 # ---------------------------------------------------------------------------
+DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
+
+
 def plot_results(results: pd.DataFrame, out_path: str = "backtest_results.png"):
     cum_strategy = (1 + results["strategy_return"]).cumprod()
     cum_bh       = (1 + results["actual_return"]).cumprod()
@@ -211,7 +226,7 @@ def plot_results(results: pd.DataFrame, out_path: str = "backtest_results.png"):
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
     print(f"\nChart saved → {out_path}")
-    plt.show()
+    plt.close()
 
 
 # ---------------------------------------------------------------------------
@@ -245,11 +260,14 @@ def main():
         print(f"  {k:<22} {v}")
 
     # Save results CSV
-    results.to_csv("backtest_results.csv", index=False)
-    print("\nDetailed results saved → backtest_results.csv")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    csv_out = DATA_DIR / "backtest_results.csv"
+    png_out = DATA_DIR / "backtest_results.png"
+    results.to_csv(csv_out, index=False)
+    print(f"\nDetailed results saved → {csv_out}")
 
     # Plot
-    plot_results(results)
+    plot_results(results, out_path=str(png_out))
 
 
 if __name__ == "__main__":
